@@ -37,11 +37,13 @@ import java.math.BigDecimal;
 import java.io.Serializable;
 
 /**
+* @website https://docs.auauz.net
 * @description /
 * @author ${author}
 * @date ${date}
 **/
 @Entity
+@Data
 @Table(name="${tableName}")
 public class ${className} implements Serializable {
 <#if columns??>
@@ -69,15 +71,15 @@ public class ${className} implements Serializable {
     </#if>
     </#if>
     <#if column.remark != ''>
-    // "${column.remark}"
+    @ApiModelProperty(value = "${column.remark}")
     <#else>
-    //"${column.changeColumnName}"
+    @ApiModelProperty(value = "${column.changeColumnName}")
     </#if>
     private ${column.columnType} ${column.changeColumnName};
     </#list>
 </#if>
 
-<#--    public void copy(${className} source){-->
-<#--        BeanUtil.copyProperties(source,this, CopyOptions.create().setIgnoreNullValue(true));-->
-<#--    }-->
+    public void copy(${className} source){
+        BeanUtil.copyProperties(source,this, CopyOptions.create().setIgnoreNullValue(true));
+    }
 }

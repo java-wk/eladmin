@@ -20,11 +20,11 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
 
 /**
-<#--* @website https://docs.auauz.net-->
+* @website https://docs.auauz.net
 * @author ${author}
 * @date ${date}
 **/
-public interface ${className}Repository extends JpaRepository<${className}, ${pkColumnType}>, CrudRepository<${className}, ${pkColumnType}>> {
+public interface ${className}Repository extends JpaRepository<${className}, ${pkColumnType}>, JpaSpecificationExecutor<${className}> {
 <#if columns??>
     <#list columns as column>
         <#if column.columnKey = 'UNI'>
