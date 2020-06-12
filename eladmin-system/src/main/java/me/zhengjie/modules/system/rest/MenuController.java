@@ -15,6 +15,7 @@
  */
 package me.zhengjie.modules.system.rest;
 
+import cn.hutool.core.collection.CollectionUtil;
 import io.swagger.annotations.Api;
 import io.swagger.annotations.ApiOperation;
 import lombok.RequiredArgsConstructor;
@@ -22,9 +23,9 @@ import me.zhengjie.annotation.Log;
 import me.zhengjie.modules.system.domain.Menu;
 import me.zhengjie.exception.BadRequestException;
 import me.zhengjie.modules.system.service.MenuService;
-import me.zhengjie.modules.system.service.RoleService;
 import me.zhengjie.modules.system.service.dto.MenuDto;
 import me.zhengjie.modules.system.service.dto.MenuQueryCriteria;
+import me.zhengjie.modules.system.service.mapstruct.MenuMapper;
 import me.zhengjie.utils.PageUtil;
 import me.zhengjie.utils.SecurityUtils;
 import org.springframework.http.HttpStatus;
@@ -47,7 +48,7 @@ import java.util.*;
 public class MenuController {
 
     private final MenuService menuService;
-    private final RoleService roleService;
+    private final MenuMapper menuMapper;
     private static final String ENTITY_NAME = "menu";
 
     @Log("导出菜单数据")
@@ -58,10 +59,10 @@ public class MenuController {
         menuService.download(menuService.queryAll(criteria, false), response);
     }
 
-    @ApiOperation("获取前端所需菜单")
     @GetMapping(value = "/build")
+    @ApiOperation("获取前端所需菜单")
     public ResponseEntity<Object> buildMenus(){
-        List<MenuDto> menuDtoList = menuService.findByRoles(roleService.findByUsersId(SecurityUtils.getCurrentUserId()));
+        List<MenuDto> menuDtoList = menuService.findByUser(SecurityUtils.getCurrentUserId());
         List<MenuDto> menuDtos = menuService.buildTree(menuDtoList);
         return new ResponseEntity<>(menuService.buildMenus(menuDtos),HttpStatus.OK);
     }
@@ -84,15 +85,18 @@ public class MenuController {
 
     @Log("查询菜单")
     @ApiOperation("查询菜单:根据ID获取同级与上级数据")
-    @GetMapping("/superior")
+    @PostMapping("/superior")
     @PreAuthorize("@el.check('menu:list')")
-    public ResponseEntity<Object> getSuperior(@RequestParam List<Long> ids) {
+    public ResponseEntity<Object> getSuperior(@RequestBody List<Long> ids) {
         Set<MenuDto> menuDtos = new LinkedHashSet<>();
-        for (Long id : ids) {
-            MenuDto menuDto = menuService.findById(id);
-            menuDtos.addAll(menuService.getSuperior(menuDto, new ArrayList<>()));
+        if(CollectionUtil.isNotEmpty(ids)){
+            for (Long id : ids) {
+                MenuDto menuDto = menuService.findById(id);
+                menuDtos.addAll(menuService.getSuperior(menuDto, new ArrayList<>()));
+            }
+            return new ResponseEntity<>(menuService.buildTree(new ArrayList<>(menuDtos)),HttpStatus.OK);
         }
-        return new ResponseEntity<>(menuService.buildTree(new ArrayList<>(menuDtos)),HttpStatus.OK);
+        return new ResponseEntity<>(menuService.getMenus(null),HttpStatus.OK);
     }
 
     @Log("新增菜单")
@@ -103,7 +107,8 @@ public class MenuController {
         if (resources.getId() != null) {
             throw new BadRequestException("A new "+ ENTITY_NAME +" cannot already have an ID");
         }
-        return new ResponseEntity<>(menuService.create(resources),HttpStatus.CREATED);
+        menuService.create(resources);
+        return new ResponseEntity<>(HttpStatus.CREATED);
     }
 
     @Log("修改菜单")
@@ -122,9 +127,9 @@ public class MenuController {
     public ResponseEntity<Object> delete(@RequestBody Set<Long> ids){
         Set<Menu> menuSet = new HashSet<>();
         for (Long id : ids) {
-            List<Menu> menuList = menuService.findByPid(id);
+            List<MenuDto> menuList = menuService.getMenus(id);
             menuSet.add(menuService.findOne(id));
-            menuSet = menuService.getDeleteMenus(menuList, menuSet);
+            menuSet = menuService.getDeleteMenus(menuMapper.toEntity(menuList), menuSet);
         }
         menuService.delete(menuSet);
         return new ResponseEntity<>(HttpStatus.OK);

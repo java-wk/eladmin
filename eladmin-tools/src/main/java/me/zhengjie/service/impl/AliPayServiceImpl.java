@@ -29,7 +29,6 @@ import org.springframework.cache.annotation.CacheConfig;
 import org.springframework.cache.annotation.CachePut;
 import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 import java.util.Optional;
 
@@ -40,10 +39,24 @@ import java.util.Optional;
 @Service
 @RequiredArgsConstructor
 @CacheConfig(cacheNames = "alipay")
-@Transactional(propagation = Propagation.SUPPORTS, readOnly = true, rollbackFor = Exception.class)
 public class AliPayServiceImpl implements AliPayService {
 
     private final AliPayRepository alipayRepository;
+
+    @Override
+    @Cacheable(key = "'id:1'")
+    public AlipayConfig find() {
+        Optional<AlipayConfig> alipayConfig = alipayRepository.findById(1L);
+        return alipayConfig.orElseGet(AlipayConfig::new);
+    }
+
+    @Override
+    @CachePut(key = "'id:1'")
+    @Transactional(rollbackFor = Exception.class)
+    public AlipayConfig config(AlipayConfig alipayConfig) {
+        alipayConfig.setId(1L);
+        return alipayRepository.save(alipayConfig);
+    }
 
     @Override
     public String toPayAsPc(AlipayConfig alipay, TradeVo trade) throws Exception {
@@ -102,19 +115,5 @@ public class AliPayServiceImpl implements AliPayService {
                 "    }"+
                 "  }");
         return alipayClient.pageExecute(request, "GET").getBody();
-    }
-
-    @Override
-    @Cacheable(key = "'1'")
-    public AlipayConfig find() {
-        Optional<AlipayConfig> alipayConfig = alipayRepository.findById(1L);
-        return alipayConfig.orElseGet(AlipayConfig::new);
-    }
-
-    @Override
-    @CachePut(key = "'1'")
-    @Transactional(rollbackFor = Exception.class)
-    public AlipayConfig update(AlipayConfig alipayConfig) {
-        return alipayRepository.save(alipayConfig);
     }
 }

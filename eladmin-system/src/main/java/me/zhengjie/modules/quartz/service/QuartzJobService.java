@@ -19,7 +19,6 @@ import me.zhengjie.modules.quartz.domain.QuartzJob;
 import me.zhengjie.modules.quartz.domain.QuartzLog;
 import me.zhengjie.modules.quartz.service.dto.JobQueryCriteria;
 import org.springframework.data.domain.Pageable;
-
 import javax.servlet.http.HttpServletResponse;
 import java.io.IOException;
 import java.util.List;
@@ -64,9 +63,8 @@ public interface QuartzJobService {
     /**
      * 创建
      * @param resources /
-     * @return /
      */
-    QuartzJob create(QuartzJob resources);
+    void create(QuartzJob resources);
 
     /**
      * 编辑
@@ -114,4 +112,11 @@ public interface QuartzJobService {
      * @throws IOException /
      */
     void downloadLog(List<QuartzLog> queryAllLog, HttpServletResponse response) throws IOException;
+
+    /**
+     * 执行子任务
+     * @param tasks /
+     * @throws InterruptedException /
+     */
+    void executionSubJob(String[] tasks) throws InterruptedException;
 }

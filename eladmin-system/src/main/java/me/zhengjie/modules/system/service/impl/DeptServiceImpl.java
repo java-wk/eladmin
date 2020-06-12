@@ -20,20 +20,22 @@ import cn.hutool.core.util.ObjectUtil;
 import lombok.RequiredArgsConstructor;
 import me.zhengjie.exception.BadRequestException;
 import me.zhengjie.modules.system.domain.Dept;
+import me.zhengjie.modules.system.domain.User;
+import me.zhengjie.modules.system.repository.RoleRepository;
+import me.zhengjie.modules.system.repository.UserRepository;
 import me.zhengjie.modules.system.service.dto.DeptDto;
 import me.zhengjie.modules.system.service.dto.DeptQueryCriteria;
 import me.zhengjie.utils.FileUtil;
 import me.zhengjie.utils.QueryHelp;
+import me.zhengjie.utils.RedisUtils;
 import me.zhengjie.utils.ValidationUtil;
 import me.zhengjie.modules.system.repository.DeptRepository;
 import me.zhengjie.modules.system.service.DeptService;
 import me.zhengjie.modules.system.service.mapstruct.DeptMapper;
 import org.springframework.cache.annotation.CacheConfig;
-import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.cache.annotation.Cacheable;
 import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 import javax.servlet.http.HttpServletResponse;
 import java.io.IOException;
@@ -48,14 +50,15 @@ import java.util.stream.Collectors;
 @Service
 @RequiredArgsConstructor
 @CacheConfig(cacheNames = "dept")
-@Transactional(propagation = Propagation.SUPPORTS, readOnly = true, rollbackFor = Exception.class)
 public class DeptServiceImpl implements DeptService {
 
     private final DeptRepository deptRepository;
     private final DeptMapper deptMapper;
+    private final UserRepository userRepository;
+    private final RedisUtils redisUtils;
+    private final RoleRepository roleRepository;
 
     @Override
-    @Cacheable
     public List<DeptDto> queryAll(DeptQueryCriteria criteria, Boolean isQuery) throws Exception {
         Sort sort = new Sort(Sort.Direction.ASC, "deptSort");
         if (isQuery) {
@@ -79,7 +82,7 @@ public class DeptServiceImpl implements DeptService {
     }
 
     @Override
-    @Cacheable(key = "#p0")
+    @Cacheable(key = "'id:' + #p0")
     public DeptDto findById(Long id) {
         Dept dept = deptRepository.findById(id).orElseGet(Dept::new);
         ValidationUtil.isNull(dept.getId(),"Dept","id",id);
@@ -87,27 +90,33 @@ public class DeptServiceImpl implements DeptService {
     }
 
     @Override
-    @Cacheable
+    @Cacheable(key = "'pid:' + #p0")
     public List<Dept> findByPid(long pid) {
         return deptRepository.findByPid(pid);
     }
 
     @Override
-    public Set<Dept> findByRoleIds(Long id) {
-        return deptRepository.findByRoles_Id(id);
+    public Set<Dept> findByRoleId(Long id) {
+        return deptRepository.findByRoleId(id);
     }
 
     @Override
-    @CacheEvict(allEntries = true)
     @Transactional(rollbackFor = Exception.class)
-    public DeptDto create(Dept resources) {
-        return deptMapper.toDto(deptRepository.save(resources));
+    public void create(Dept resources) {
+        deptRepository.save(resources);
+        // 计算子节点数目
+        resources.setSubCount(0);
+        // 清理缓存
+        redisUtils.del("dept::pid:" + (resources.getPid() == null ? 0 : resources.getPid()));
+        updateSubCnt(resources.getPid());
     }
 
     @Override
-    @CacheEvict(allEntries = true)
     @Transactional(rollbackFor = Exception.class)
     public void update(Dept resources) {
+        // 旧的部门
+        Long oldPid = findById(resources.getId()).getPid();
+        Long newPid = resources.getPid();
         if(resources.getPid() != null && resources.getId().equals(resources.getPid())) {
             throw new BadRequestException("上级不能为自己");
         }
@@ -115,14 +124,21 @@ public class DeptServiceImpl implements DeptService {
         ValidationUtil.isNull( dept.getId(),"Dept","id",resources.getId());
         resources.setId(dept.getId());
         deptRepository.save(resources);
+        // 更新父节点中子节点数目
+        updateSubCnt(oldPid);
+        updateSubCnt(newPid);
+        // 清理缓存
+        delCaches(resources.getId(), oldPid, newPid);
     }
 
     @Override
-    @CacheEvict(allEntries = true)
     @Transactional(rollbackFor = Exception.class)
     public void delete(Set<DeptDto> deptDtos) {
         for (DeptDto deptDto : deptDtos) {
+            // 清理缓存
+            delCaches(deptDto.getId(), deptDto.getPid(), null);
             deptRepository.deleteById(deptDto.getId());
+            updateSubCnt(deptDto.getPid());
         }
     }
 
@@ -152,6 +168,22 @@ public class DeptServiceImpl implements DeptService {
     }
 
     @Override
+    public List<Long> getDeptChildren(Long deptId, List<Dept> deptList) {
+        List<Long> list = new ArrayList<>();
+        deptList.forEach(dept -> {
+                    if (dept!=null && dept.getEnabled()){
+                        List<Dept> depts = deptRepository.findByPid(dept.getId());
+                        if(deptList.size() != 0){
+                            list.addAll(getDeptChildren(dept.getId(), depts));
+                        }
+                        list.add(dept.getId());
+                    }
+                }
+        );
+        return list;
+    }
+
+    @Override
     public List<DeptDto> getSuperior(DeptDto deptDto, List<Dept> depts) {
         if(deptDto.getPid() == null){
             depts.addAll(deptRepository.findByPidIsNull());
@@ -173,7 +205,7 @@ public class DeptServiceImpl implements DeptService {
                 trees.add(deptDTO);
             }
             for (DeptDto it : deptDtos) {
-                if (deptDTO.getId().equals(it.getPid())) {
+                if (it.getPid() != null && deptDTO.getId().equals(it.getPid())) {
                     isChild = true;
                     if (deptDTO.getChildren() == null) {
                         deptDTO.setChildren(new ArrayList<>());
@@ -183,7 +215,7 @@ public class DeptServiceImpl implements DeptService {
             }
             if(isChild) {
                 depts.add(deptDTO);
-            } else if(!deptNames.contains(deptRepository.findNameById(deptDTO.getPid()))) {
+            } else if(deptDTO.getPid() != null &&  !deptNames.contains(findById(deptDTO.getPid()).getName())) {
                 depts.add(deptDTO);
             }
         }
@@ -191,12 +223,42 @@ public class DeptServiceImpl implements DeptService {
         if (CollectionUtil.isEmpty(trees)) {
             trees = depts;
         }
-
-        Integer totalElements = deptDtos.size();
-
         Map<String,Object> map = new HashMap<>(2);
-        map.put("totalElements",totalElements);
+        map.put("totalElements",deptDtos.size());
         map.put("content",CollectionUtil.isEmpty(trees)? deptDtos :trees);
         return map;
+    }
+
+    @Override
+    public void verification(Set<DeptDto> deptDtos) {
+        Set<Long> deptIds = deptDtos.stream().map(DeptDto::getId).collect(Collectors.toSet());
+        if(userRepository.countByDepts(deptIds) > 0){
+            throw new BadRequestException("所选部门存在用户关联，请解除后再试！");
+        }
+        if(roleRepository.countByDepts(deptIds) > 0){
+            throw new BadRequestException("所选部门存在角色关联，请解除后再试！");
+        }
+    }
+
+    private void updateSubCnt(Long deptId){
+        if(deptId != null){
+            int count = deptRepository.countByPid(deptId);
+            deptRepository.updateSubCntById(count, deptId);
+        }
+    }
+
+    /**
+     * 清理缓存
+     * @param id /
+     * @param oldPid /
+     * @param newPid /
+     */
+    public void delCaches(Long id, Long oldPid, Long newPid){
+        List<User> users = userRepository.findByDeptRoleId(id);
+        // 删除数据权限
+        redisUtils.delByKeys("data::user:",users.stream().map(User::getId).collect(Collectors.toSet()));
+        redisUtils.del("dept::id:" + id);
+        redisUtils.del("dept::pid:" + (oldPid == null ? 0 : oldPid));
+        redisUtils.del("dept::pid:" + (newPid == null ? 0 : newPid));
     }
 }
