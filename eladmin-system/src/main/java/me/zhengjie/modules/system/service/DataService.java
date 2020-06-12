@@ -15,9 +15,7 @@
  */
 package me.zhengjie.modules.system.service;
 
-import me.zhengjie.modules.system.domain.Dept;
 import me.zhengjie.modules.system.service.dto.UserDto;
-
 import java.util.List;
 
 /**
@@ -33,11 +31,4 @@ public interface DataService {
      * @return /
      */
     List<Long> getDeptIds(UserDto user);
-
-    /**
-     * 递归获取子级部门
-     * @param deptList /
-     * @return /
-     */
-    List<Long> getDeptChildren(List<Dept> deptList);
 }

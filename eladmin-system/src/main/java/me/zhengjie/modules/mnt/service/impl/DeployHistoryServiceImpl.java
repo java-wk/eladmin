@@ -30,7 +30,6 @@ import me.zhengjie.utils.ValidationUtil;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 import javax.servlet.http.HttpServletResponse;
 import java.io.IOException;
@@ -42,7 +41,6 @@ import java.util.*;
 */
 @Service
 @RequiredArgsConstructor
-@Transactional(propagation = Propagation.SUPPORTS, readOnly = true, rollbackFor = Exception.class)
 public class DeployHistoryServiceImpl implements DeployHistoryService {
 
     private final DeployHistoryRepository deployhistoryRepository;
@@ -68,9 +66,9 @@ public class DeployHistoryServiceImpl implements DeployHistoryService {
 
     @Override
     @Transactional(rollbackFor = Exception.class)
-    public DeployHistoryDto create(DeployHistory resources) {
+    public void create(DeployHistory resources) {
         resources.setId(IdUtil.simpleUUID());
-        return deployhistoryMapper.toDto(deployhistoryRepository.save(resources));
+        deployhistoryRepository.save(resources);
     }
 
     @Override

@@ -34,6 +34,12 @@ import java.util.Set;
 public interface RoleService {
 
     /**
+     * 查询全部数据
+     * @return /
+     */
+    List<RoleDto> queryAll();
+
+    /**
      * 根据ID查询
      * @param id /
      * @return /
@@ -43,9 +49,8 @@ public interface RoleService {
     /**
      * 创建
      * @param resources /
-     * @return /
      */
-    RoleDto create(Role resources);
+    void create(Role resources);
 
     /**
      * 编辑
@@ -87,13 +92,6 @@ public interface RoleService {
     void untiedMenu(Long id);
 
     /**
-     * 不带条件分页查询
-     * @param pageable 分页参数
-     * @return /
-     */
-    Object queryAll(Pageable pageable);
-
-    /**
      * 待条件分页查询
      * @param criteria 条件
      * @param pageable 分页参数
@@ -122,4 +120,17 @@ public interface RoleService {
      * @return 权限信息
      */
     List<GrantedAuthority> mapToGrantedAuthorities(UserDto user);
+
+    /**
+     * 验证是否被用户关联
+     * @param ids /
+     */
+    void verification(Set<Long> ids);
+
+    /**
+     * 根据菜单Id查询
+     * @param menuIds /
+     * @return /
+     */
+    List<Role> findInMenuId(List<Long> menuIds);
 }

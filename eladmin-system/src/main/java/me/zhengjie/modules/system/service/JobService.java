@@ -19,7 +19,6 @@ import me.zhengjie.modules.system.domain.Job;
 import me.zhengjie.modules.system.service.dto.JobDto;
 import me.zhengjie.modules.system.service.dto.JobQueryCriteria;
 import org.springframework.data.domain.Pageable;
-
 import javax.servlet.http.HttpServletResponse;
 import java.io.IOException;
 import java.util.List;
@@ -44,7 +43,7 @@ public interface JobService {
      * @param resources /
      * @return /
      */
-    JobDto create(Job resources);
+    void create(Job resources);
 
     /**
      * 编辑
@@ -80,4 +79,10 @@ public interface JobService {
      * @throws IOException /
      */
     void download(List<JobDto> queryAll, HttpServletResponse response) throws IOException;
+
+    /**
+     * 验证是否被用户关联
+     * @param ids /
+     */
+    void verification(Set<Long> ids);
 }

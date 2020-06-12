@@ -48,9 +48,8 @@ public interface DeptService {
     /**
      * 创建
      * @param resources /
-     * @return /
      */
-    DeptDto create(Dept resources);
+    void create(Dept resources);
 
     /**
      * 编辑
@@ -77,7 +76,7 @@ public interface DeptService {
      * @param id /
      * @return /
      */
-    Set<Dept> findByRoleIds(Long id);
+    Set<Dept> findByRoleId(Long id);
 
     /**
      * 导出数据
@@ -109,4 +108,18 @@ public interface DeptService {
      * @return /
      */
     Object buildTree(List<DeptDto> deptDtos);
+
+    /**
+     * 获取
+     * @param deptId
+     * @param deptList
+     * @return
+     */
+    List<Long> getDeptChildren(Long deptId, List<Dept> deptList);
+
+    /**
+     * 验证是否被角色或用户关联
+     * @param deptDtos /
+     */
+    void verification(Set<DeptDto> deptDtos);
 }

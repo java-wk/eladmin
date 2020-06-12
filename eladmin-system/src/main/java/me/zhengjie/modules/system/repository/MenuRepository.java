@@ -18,6 +18,8 @@ package me.zhengjie.modules.system.repository;
 import me.zhengjie.modules.system.domain.Menu;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
+import org.springframework.data.jpa.repository.Modifying;
+import org.springframework.data.jpa.repository.Query;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
@@ -26,7 +28,6 @@ import java.util.Set;
  * @author Zheng Jie
  * @date 2018-12-17
  */
-@SuppressWarnings("all")
 public interface MenuRepository extends JpaRepository<Menu, Long>, JpaSpecificationExecutor<Menu> {
 
     /**
@@ -62,12 +63,23 @@ public interface MenuRepository extends JpaRepository<Menu, Long>, JpaSpecificat
      * @param type 类型
      * @return /
      */
-    LinkedHashSet<Menu> findByRoles_IdInAndTypeNotOrderByMenuSortAsc(Set<Long> roleIds, int type);
+    @Query(value = "SELECT m.* FROM sys_menu m, sys_roles_menus r WHERE " +
+            "m.menu_id = r.menu_id AND r.role_id IN ?1 AND type != ?2 order by m.menu_sort asc",nativeQuery = true)
+    LinkedHashSet<Menu> findByRoleIdsAndTypeNot(Set<Long> roleIds, int type);
 
     /**
      * 获取节点数量
      * @param id /
-     * @return
+     * @return /
      */
     int countByPid(Long id);
+
+    /**
+     * 更新节点数目
+     * @param count /
+     * @param menuId /
+     */
+    @Modifying
+    @Query(value = " update sys_menu set sub_count = ?1 where menu_id = ?2 ",nativeQuery = true)
+    void updateSubCntById(int count, Long menuId);
 }
