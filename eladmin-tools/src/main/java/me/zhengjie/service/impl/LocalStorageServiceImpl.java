@@ -27,7 +27,6 @@ import me.zhengjie.utils.*;
 import me.zhengjie.repository.LocalStorageRepository;
 import me.zhengjie.service.LocalStorageService;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 import java.io.File;
 import java.io.IOException;
@@ -46,7 +45,6 @@ import javax.servlet.http.HttpServletResponse;
 */
 @Service
 @RequiredArgsConstructor
-@Transactional(propagation = Propagation.SUPPORTS, readOnly = true, rollbackFor = Exception.class)
 public class LocalStorageServiceImpl implements LocalStorageService {
 
     private final LocalStorageRepository localStorageRepository;
@@ -73,7 +71,7 @@ public class LocalStorageServiceImpl implements LocalStorageService {
 
     @Override
     @Transactional(rollbackFor = Exception.class)
-    public LocalStorageDto create(String name, MultipartFile multipartFile) {
+    public void create(String name, MultipartFile multipartFile) {
         FileUtil.checkSize(properties.getMaxSize(), multipartFile.getSize());
         String suffix = FileUtil.getExtensionName(multipartFile.getOriginalFilename());
         String type = FileUtil.getFileType(suffix);
@@ -91,7 +89,7 @@ public class LocalStorageServiceImpl implements LocalStorageService {
                     type,
                     FileUtil.getSize(multipartFile.getSize())
             );
-            return localStorageMapper.toDto(localStorageRepository.save(localStorage));
+            localStorageRepository.save(localStorage);
         }catch (Exception e){
             FileUtil.del(file);
             throw e;
