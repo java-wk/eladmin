@@ -57,7 +57,7 @@ public class GeneratorController {
     @GetMapping(value = "/tables")
     public ResponseEntity<Object> queryTables(@RequestParam(defaultValue = "") String name,
                                     @RequestParam(defaultValue = "0")Integer page,
-                                    @RequestParam(defaultValue = "10")Integer size){
+                                    @RequestParam(defaultValue = "50")Integer size){
         int[] startEnd = PageUtil.transToStartEnd(page, size);
         return new ResponseEntity<>(generatorService.getTables(name,startEnd), HttpStatus.OK);
     }
